@@ -1,0 +1,41 @@
+.customer-card {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s;
+    text-align: left;
+}
+
+.customer-card:hover {
+    transform: translateY(-5px);
+}
+
+.customer-card h2 {
+    margin-top: 0;
+    color: #007bff;
+}
+
+.rewards-details ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+.rewards-details li {
+    background-color: #e9ecef;
+    margin-bottom: 5px;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.total-rewards {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px dashed #ccc;
+}
+
+.total-rewards h3 {
+    margin: 0;
+    color: #28a745;
+}

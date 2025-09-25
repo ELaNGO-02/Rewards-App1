@@ -1,0 +1,23 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f9;
+    color: #333;
+    margin: 0;
+    padding: 20px;
+}
+
+.app-container {
+    max-width: 900px;
+    margin: auto;
+    text-align: center;
+}
+
+.app-title {
+    color: #444;
+}
+
+.loading-message, .error-message, .no-data-message {
+    font-size: 1.2rem;
+    padding: 20px;
+    color: #555;
+}
