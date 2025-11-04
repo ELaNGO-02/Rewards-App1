@@ -16,11 +16,11 @@ export const fetchCustomers = async () => {
 };
 
 // Add / Update a reward (Upsert)
-export const upsertReward = async (customerId, monthYear, points) => {
+export const upsertReward = async (customerId, monthYear, purchaseAmount) => {
     const res = await fetch(`${API_BASE}/rewards/upsert`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customerId, monthYear, points }),
+        body: JSON.stringify({ customerId, monthYear, purchaseAmount }),
     });
     return res.json();
 };
