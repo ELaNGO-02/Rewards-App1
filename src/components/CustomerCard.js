@@ -38,7 +38,7 @@ const CustomerCard = ({ customer = {}, onUpdate, onDelete }) => {
 
     return (
         <div className="customer-card">
-            <h2>Customer ID: {id}</h2>
+            <h3>Customer ID: {id}</h3>
 
             <div className="rewards-details">
                 <h3>Monthly Rewards:</h3>

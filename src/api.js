@@ -1,9 +1,9 @@
-const API_BASE = "http://localhost:3001/api";
+const API_BASE = "http://localhost:3002/api";
 
 // Get all transactions
 export const fetchTransactions = async () => {
     const res = await fetch(`${API_BASE}/transactions`);
-    console.log(res.FormData);
+    console.log(res);
     if (!res.ok) throw new Error("Failed to fetch transactions");
     return res.json();
 };

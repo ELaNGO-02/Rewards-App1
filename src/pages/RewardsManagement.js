@@ -146,13 +146,13 @@ const RewardsManagement = ({ customers, setCustomers }) => {
 
     return (
         <div className="page-container">
-            <h1>Rewards Management (MySQL)</h1>
+            <h2>Rewards Management (MySQL)</h2>
 
             {!showNewCustomerForm ? (
-                <button onClick={() => setShowNewCustomerForm(true)}>➕ Add New Customer</button>
+                <button onClick={() => setShowNewCustomerForm(true)}>➕ Add New Transactions</button>
             ) : (
                 <div className="new-customer-form">
-                    <h3>Add New Customer</h3>
+                    <h3>Add New Transactions</h3>
                     <input
                         type="number"
                         placeholder="Customer ID"
@@ -172,7 +172,7 @@ const RewardsManagement = ({ customers, setCustomers }) => {
                     </select>
                     <input
                         type="number"
-                        placeholder="Points"
+                        placeholder="Amount"
                         value={newCustomerRewards.points}
                         onChange={(e) =>
                             setNewCustomerRewards({ ...newCustomerRewards, points: e.target.value })
