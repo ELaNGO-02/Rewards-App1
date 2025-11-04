@@ -12,8 +12,8 @@ export default function Header(){
             </a>   
             </div>                
             <nav>
-                 {/* <a className="nav-menu" href="/customers">Customers</a> */}
-                 <a className="nav-menu" href="/manage-rewards">Manage Rewards</a>
+                 <a className="nav-menu" href="/manage-rewards">View Rewards</a>
+                 <a className="nav-menu" href="/transaction-management">Manage Transactions</a>
             </nav>
             <a href="https://www.atmaaisolutions.com/" className="contact-us" target="_blank" rel="noopener noreferrer">
                 Contact US

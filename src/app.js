@@ -119,6 +119,10 @@ function App() {
                     path="/manage-rewards"
                     element={<RewardsManagement customers={customers} setCustomers={setCustomers} />}
                 />
+                <Route
+                    path="/transaction-management"
+                    element={<RewardsManagement customers={customers} setCustomers={setCustomers} />}
+                />
             </Routes>
         </Router>
     );
