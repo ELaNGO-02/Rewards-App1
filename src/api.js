@@ -15,6 +15,12 @@ export const fetchCustomers = async () => {
     return res.json();
 };
 
+export const fetchRewards = async () => {
+    const res = await fetch(`${API_BASE}/rewards`);
+    if (!res.ok) throw new Error("Failed to fetch rewards");
+    return res.json();
+}
+
 // Add / Update a reward (Upsert)
 export const upsertReward = async (customerId, monthYear, purchaseAmount) => {
     const res = await fetch(`${API_BASE}/rewards/upsert`, {

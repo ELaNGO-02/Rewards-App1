@@ -78,6 +78,16 @@ let db; // global reference
       }
     });
 
+    app.get("/api/rewards", async (req, res) => {
+      try {
+        const [rows] = await db.query("SELECT * FROM rewards_app.rewards");
+        res.json(rows);
+      } catch (err) {
+        console.error("[API] Get customers error:", err);
+        res.status(500).json({ error: "Failed to fetch customers" });
+      }
+    });
+
     // Add / Upsert reward (transaction)
     // Add / Upsert reward (transaction)
 app.post("/api/rewards/upsert", async (req, res) => {
