@@ -1,0 +1,664 @@
+import React, { useState } from "react";
+import PropTypes from "prop-types";
+import "./CustomerCard.css";
+
+const CustomerCard = ({ customer, onUpdate, onDelete }) => {
+  const { id, monthlyRewards} = customer;
+  const months = Object.keys(monthlyRewards);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editMonth, setEditMonth] = useState("");
+  const [editPoints, setEditPoints] = useState(0);
+
+  const [newMonth, setNewMonth] = useState("");
+  const [newPoints, setNewPoints] = useState(0);
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  // Handle editing existing reward
+  const handleSaveEdit = () => {
+    onUpdate(id, { ...monthlyRewards, [editMonth]: Number(editPoints) });
+    setIsEditing(false);
+  };
+
+  // Handle adding new reward
+  const handleAddReward = () => {
+    if (newMonth && newPoints > 0) {
+      onUpdate(id, { ...monthlyRewards, [newMonth]: Number(newPoints) });
+      setNewMonth("");
+      setNewPoints(0);
+      setShowAddForm(false);
+    }
+  };
+
+  return (
+    <div className="customer-card">
+      <h2>Customer ID: {id}</h2>
+
+      <div className="rewards-details">
+        <h3>Monthly Rewards:</h3>
+        <ul>
+          {months.map((month) => (
+            <li key={month}>
+              <strong>{month}:</strong> {monthlyRewards[month]} points{" "}
+              <button
+                onClick={() => {
+                  setIsEditing(true);
+                  setEditMonth(month);
+                  setEditPoints(monthlyRewards[month]);
+                }}
+              >
+                Edit
+              </button>
+              <button onClick={() => onDelete(id, month)}>Delete</button>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Edit Form */}
+      {isEditing && (
+        <div className="edit-form">
+          <input
+            type="number"
+            value={editPoints}
+            onChange={(e) => setEditPoints(e.target.value)}
+          />
+          <button onClick={handleSaveEdit}>Save</button>
+          <button onClick={() => setIsEditing(false)}>Cancel</button>
+        </div>
+      )}
+
+      <div className="total-rewards">
+        <h3>
+          Total Rewards:{" "}
+          {Object.values(monthlyRewards).reduce((a, b) => a + b, 0)} points
+        </h3>
+      </div>
+
+      {/* Add new reward */}
+      {showAddForm ? (
+        <div className="add-form">
+          <input
+            type="text"
+            placeholder="Month Year (e.g., July 2025)"
+            value={newMonth}
+            onChange={(e) => setNewMonth(e.target.value)}
+          />
+          <input
+            type="number"
+            placeholder="Points"
+            value={newPoints}
+            onChange={(e) => setNewPoints(e.target.value)}
+          />
+          <button onClick={handleAddReward}>Add</button>
+          <button onClick={() => setShowAddForm(false)}>Cancel</button>
+        </div>
+      ) : (
+        <button onClick={() => setShowAddForm(true)}>Add New Reward</button>
+      )}
+    </div>
+  );
+};
+
+CustomerCard.propTypes = {
+  customer: PropTypes.shape({
+    id: PropTypes.number.isRequired,
+    monthlyRewards: PropTypes.objectOf(PropTypes.number).isRequired,
+    totalRewards: PropTypes.number.isRequired,
+  }).isRequired,
+  onUpdate: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+};
+
+export default CustomerCard;
+
+
+
+
+app.js
+
+
+import React, { useState, useEffect } from "react";
+import CustomerList from "./components/CustomerList";
+import { fetchTransactions } from "./api";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import "./app.css";
+import { calculatePoints } from "./utils/calculations";
+
+
+// Base URL of your json-server
+const API_URL = "http://localhost:3001";
+
+function App() {
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const [selectedMonth, setSelectedMonth] = useState("All");
+  const [selectedYear, setSelectedYear] = useState("All");
+  const [showOnlyWithRewards, setShowOnlyWithRewards] = useState(false);
+
+  useEffect(() => {
+    const getRewardsData = async () => {
+      try {
+        const transactions = await fetchTransactions();
+        const processedData = processTransactions(transactions);
+        setCustomers(processedData);
+        toast.success("Data loaded successfully!");
+      } catch (err) {
+        console.error("API Error:", err);
+        toast.error("Failed to load data.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    getRewardsData();
+  }, []);
+
+  // --- CRUD Handlers ---
+  const handleUpdateReward = async (customerId, updatedMonthlyRewards) => {
+    try {
+      // Update local state
+      setCustomers((prev) =>
+        prev.map((c) =>
+          c.id === customerId
+            ? { ...c, monthlyRewards: updatedMonthlyRewards }
+            : c
+        )
+      );
+
+      // Update each transaction in json-server
+      for (const [monthYear, points] of Object.entries(updatedMonthlyRewards)) {
+        const existingTransaction = await fetch(
+          `${API_URL}?customerId=${customerId}`
+        )
+          .then((res) => res.json())
+          .then((data) => data.find((t) => t.purchaseDate.includes(monthYear)));
+
+        if (existingTransaction) {
+          // Update existing
+          await fetch(`${API_URL}/${existingTransaction.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ purchaseAmount: points }),
+          });
+        } else {
+          // Add new transaction
+          await fetch(`${API_URL}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customerId,
+              purchaseAmount: points,
+              purchaseDate: monthYear + "-01T00:00:00",
+            }),
+          });
+        }
+      }
+
+      toast.success("Customer rewards updated!");
+    } catch (err) {
+      console.error("Update error:", err);
+      toast.error("Failed to update rewards.");
+    }
+  };
+
+  const handleDeleteReward = async (customerId, monthYear) => {
+    try {
+      const transactions = await fetch(`${API_URL}?customerId=${customerId}`)
+        .then((res) => res.json());
+      const transactionToDelete = transactions.find((t) =>
+        t.purchaseDate.includes(monthYear)
+      );
+
+      if (transactionToDelete) {
+        await fetch(`${API_URL}/${transactionToDelete.id}`, {
+          method: "DELETE",
+        });
+      }
+
+      // Update local state
+      setCustomers((prev) =>
+        prev.map((c) => {
+          if (c.id === customerId) {
+            const updatedRewards = { ...c.monthlyRewards };
+            delete updatedRewards[monthYear];
+            return { ...c, monthlyRewards: updatedRewards };
+          }
+          return c;
+        })
+      );
+
+      toast.success("Reward deleted!");
+    } catch (err) {
+      console.error("Delete error:", err);
+      toast.error("Failed to delete reward.");
+    }
+  };
+
+  if (loading) return <div>Loading...</div>;
+
+  const filteredCustomers = customers.map((customer) => {
+    const filteredRewards = {};
+    Object.entries(customer.monthlyRewards).forEach(([monthYear, points]) => {
+      const [month, year] = monthYear.split(" ");
+      if (
+        (selectedMonth === "All" || month === selectedMonth) &&
+        (selectedYear === "All" || year === selectedYear)
+      ) {
+        filteredRewards[monthYear] = points;
+      }
+    });
+    return {
+      ...customer,
+      monthlyRewards: filteredRewards,
+      totalRewards: Object.values(filteredRewards).reduce((a, b) => a + b, 0),
+    };
+  });
+
+  return (
+    <div className="app-container">
+      <h1>Retailer Rewards Program</h1>
+
+      <div className="filters">
+        <label>
+          Month:
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+          >
+            <option value="All">All</option>
+            <option value="January">January</option>
+            <option value="February">February</option>
+            <option value="March">March</option>
+            <option value="April">April</option>
+            <option value="May">May</option>
+            <option value="June">June</option>
+            <option value="July">July</option>
+            <option value="August">August</option>
+            <option value="September">September</option>
+            <option value="October">October</option>
+            <option value="November">November</option>
+            <option value="December">December</option>
+          </select>
+        </label>
+
+        <label>
+          Year:
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(e.target.value)}
+          >
+            <option value="All">All</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+          </select>
+        </label>
+
+        <label>
+          <input
+            type="checkbox"
+            checked={showOnlyWithRewards}
+            onChange={(e) => setShowOnlyWithRewards(e.target.checked)}
+          />
+          Show only customers with rewards
+        </label>
+      </div>
+
+      <CustomerList
+        customers={
+          showOnlyWithRewards
+            ? filteredCustomers.filter((c) => c.totalRewards > 0)
+            : filteredCustomers
+        }
+        onUpdate={handleUpdateReward}
+        onDelete={handleDeleteReward}
+      />
+
+      <ToastContainer position="top-right" autoClose={3000} hideProgressBar />
+    </div>
+  );
+}
+
+// Utility to process transactions into customer objects
+export const processTransactions = (transactions) => {
+  const customersMap = {}; // use object keyed by customerId
+
+  transactions.forEach(({ customerId, purchaseAmount, purchaseDate }) => {
+    const date = new Date(purchaseDate);
+    const monthYear =
+      date.toLocaleString("default", { month: "long" }) +
+      " " +
+      date.getFullYear();
+
+    const points = calculatePoints(purchaseAmount);
+
+    if (!customersMap[customerId]) {
+      customersMap[customerId] = { id: customerId, monthlyRewards: {}, totalRewards: 0 };
+    }
+
+    if (!customersMap[customerId].monthlyRewards[monthYear]) {
+      customersMap[customerId].monthlyRewards[monthYear] = 0;
+    }
+
+    customersMap[customerId].monthlyRewards[monthYear] += points;
+    customersMap[customerId].totalRewards =
+      Object.values(customersMap[customerId].monthlyRewards).reduce((a, b) => a + b, 0);
+  });
+
+  return Object.values(customersMap);
+};
+
+
+export default App;
+
+
+api.js
+
+// import { transactionsData } from './utils/data';
+
+// export const fetchTransactions = () => {
+//     return new Promise(resolve => {
+//         setTimeout(() => {
+//             resolve(transactionsData);
+//         }, 1000); // Simulate a 1-second network delay
+//     });
+// };
+
+// import { transactionsData } from "./utils/data";
+
+// export const fetchTransactions = async (shouldFail = false) => {
+//   return new Promise((resolve, reject) => {
+//     console.log("API: Fetching transactions...");
+//     setTimeout(() => {
+//       if (shouldFail) {
+//         console.error("API Error: Failed to fetch transactions.");
+//         reject(new Error("API error: Failed to fetch transactions."));
+//       } else {
+//         console.log("API Success: Transactions fetched.");
+//         resolve(transactionsData);
+//       }
+//     }, 1000);
+//   }).then((data) => {
+//     console.log("Fetched transactions:", data);
+//     return data;
+//   }).catch((err) => {
+//     console.error("API: Error caught in fetchTransactions:", err.message); // log caught error
+//     throw err; // rethrow so calling code knows
+//   });
+// };
+
+
+// api.js
+
+// import { faker } from "@faker-js/faker";
+
+
+
+
+// export const fetchTransactions = async () => {
+//   try {
+//     console.log("Fetching transactions from public/transaction.json...");
+//     const response = await fetch("/transactions.json");
+//     if (!response.ok) {
+//       throw new Error("Failed to fetch transactions JSON");
+//     }
+//     const data = await response.json();
+//     console.log("Fetched transactions:", data); 
+//     return data;
+//   } catch (err) {
+//     console.error("API Error:", err.message);
+//     throw err; 
+//   }
+// };
+
+
+// //faker api
+
+// export const fetchFakeTransactions = async (count = 500) => {
+//   return new Promise((resolve) => {
+//     setTimeout(() => {
+//       const transactions = Array.from({ length: count }, (_, i) => ({
+//         id: i + 1,
+//         customerId: faker.number.int({ min: 1, max: 100 }),
+//         purchaseAmount: faker.number.int({ min: 20, max: 500 }),
+//         purchaseDate: faker.date.between({
+//           from: "2025-01-01T00:00:00",
+//           to: "2025-12-31T23:59:59",
+//         }).toISOString(),
+//       }));
+
+//       console.log("Fetched transactions (from Faker):", transactions);
+//       resolve(transactions);
+//     }, 1000);
+//   });
+// };
+
+
+
+const API_URL = "http://localhost:3001/transactions";
+
+// READ: Fetch all transactions
+export const fetchTransactions = async () => {
+  try {
+    const response = await fetch(API_URL);
+    if (!response.ok) throw new Error("Failed to fetch transactions");
+    const data = await response.json();
+    return data;
+  } catch (err) {
+    console.error("API Error:", err.message);
+    throw err;
+  }
+};
+
+// CREATE: Add new transaction
+export const createTransaction = async (transaction) => {
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(transaction),
+    });
+    if (!response.ok) throw new Error("Failed to create transaction");
+    return await response.json();
+  } catch (err) {
+    console.error("API Error:", err.message);
+    throw err;
+  }
+};
+
+// UPDATE: Update a transaction by id
+export const updateTransaction = async (id, updatedData) => {
+  try {
+    const response = await fetch(`${API_URL}/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updatedData),
+    });
+    if (!response.ok) throw new Error("Failed to update transaction");
+    return await response.json();
+  } catch (err) {
+    console.error("API Error:", err.message);
+    throw err;
+  }
+};
+
+// DELETE: Remove a transaction by id
+export const deleteTransaction = async (id) => {
+  try {
+    const response = await fetch(`${API_URL}/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to delete transaction");
+    return true;
+  } catch (err) {
+    console.error("API Error:", err.message);
+    throw err;
+  }
+};
+
+
+customerlist.js
+
+import React from "react";
+import CustomerCard from "./CustomerCard";
+import PropTypes from "prop-types";
+import "./CustomerList.css";
+
+const CustomerList = ({ customers, onUpdate, onDelete }) => {
+  return (
+    <div className="customer-list-container">
+      {customers.map((customer) => (
+        <CustomerCard
+          key={customer.id}
+          customer={customer}
+          onUpdate={onUpdate}
+          onDelete={onDelete}
+        />
+      ))}
+    </div>
+  );
+};
+
+CustomerList.propTypes = {
+  customers: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.number.isRequired,
+      monthlyRewards: PropTypes.objectOf(PropTypes.number).isRequired,
+      totalRewards: PropTypes.number.isRequired,
+    })
+  ).isRequired,
+  onUpdate: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+};
+
+export default CustomerList;
+
+
+
+data
+
+{
+  "transactions": [
+  { "id": 1, "customerId": 1, "purchaseAmount": 120, "purchaseDate": "2025-07-15T00:00:00" },
+  { "id": 2, "customerId": 1, "purchaseAmount": 80, "purchaseDate": "2025-07-20T00:00:00" },
+  { "id": 3, "customerId": 1, "purchaseAmount": 30, "purchaseDate": "2025-08-05T00:00:00" },
+  { "id": 4, "customerId": 1, "purchaseAmount": 150, "purchaseDate": "2025-08-10T00:00:00" },
+  { "id": 5, "customerId": 1, "purchaseAmount": 60, "purchaseDate": "2025-09-01T00:00:00" },
+  { "id": 6, "customerId": 1, "purchaseAmount": 200, "purchaseDate": "2025-09-25T00:00:00" },
+  { "id": 7, "customerId": 1, "purchaseAmount": 95, "purchaseDate": "2025-10-05T00:00:00" },
+  { "id": 8, "customerId": 1, "purchaseAmount": 220, "purchaseDate": "2025-11-10T00:00:00" },
+
+  { "id": 9, "customerId": 2, "purchaseAmount": 200, "purchaseDate": "2025-07-10T00:00:00" },
+  { "id": 10, "customerId": 2, "purchaseAmount": 75, "purchaseDate": "2025-07-25T00:00:00" },
+  { "id": 11, "customerId": 2, "purchaseAmount": 55, "purchaseDate": "2025-08-15T00:00:00" },
+  { "id": 12, "customerId": 2, "purchaseAmount": 105, "purchaseDate": "2025-09-05T00:00:00" },
+  { "id": 13, "customerId": 2, "purchaseAmount": 90, "purchaseDate": "2025-09-10T00:00:00" },
+  { "id": 14, "customerId": 2, "purchaseAmount": 150, "purchaseDate": "2025-10-12T00:00:00" },
+  { "id": 15, "customerId": 2, "purchaseAmount": 220, "purchaseDate": "2025-11-03T00:00:00" },
+
+  { "id": 16, "customerId": 3, "purchaseAmount": 110, "purchaseDate": "2025-07-01T00:00:00" },
+  { "id": 17, "customerId": 3, "purchaseAmount": 60, "purchaseDate": "2025-08-20T00:00:00" },
+  { "id": 18, "customerId": 3, "purchaseAmount": 45, "purchaseDate": "2025-09-12T00:00:00" },
+  { "id": 19, "customerId": 3, "purchaseAmount": 120, "purchaseDate": "2025-09-30T00:00:00" },
+  { "id": 20, "customerId": 3, "purchaseAmount": 180, "purchaseDate": "2025-10-22T00:00:00" },
+
+  { "id": 21, "customerId": 4, "purchaseAmount": 95, "purchaseDate": "2025-07-18T00:00:00" },
+  { "id": 22, "customerId": 4, "purchaseAmount": 210, "purchaseDate": "2025-08-22T00:00:00" },
+  { "id": 23, "customerId": 4, "purchaseAmount": 130, "purchaseDate": "2025-09-15T00:00:00" },
+  { "id": 24, "customerId": 4, "purchaseAmount": 175, "purchaseDate": "2025-10-05T00:00:00" },
+
+  { "id": 25, "customerId": 5, "purchaseAmount": 95, "purchaseDate": "2025-07-08T00:00:00" },
+  { "id": 26, "customerId": 5, "purchaseAmount": 220, "purchaseDate": "2025-08-27T00:00:00" },
+  { "id": 27, "customerId": 5, "purchaseAmount": 180, "purchaseDate": "2025-09-05T00:00:00" },
+
+  { "id": 28, "customerId": 6, "purchaseAmount": 75, "purchaseDate": "2025-07-14T00:00:00" },
+  { "id": 29, "customerId": 6, "purchaseAmount": 140, "purchaseDate": "2025-08-11T00:00:00" },
+  { "id": 30, "customerId": 6, "purchaseAmount": 200, "purchaseDate": "2025-09-29T00:00:00" },
+
+  { "id": 31, "customerId": 7, "purchaseAmount": 130, "purchaseDate": "2025-08-10T00:00:00" },
+  { "id": 32, "customerId": 7, "purchaseAmount": 95, "purchaseDate": "2025-09-03T00:00:00" },
+  { "id": 33, "customerId": 7, "purchaseAmount": 175, "purchaseDate": "2025-10-14T00:00:00" },
+
+  { "id": 34, "customerId": 8, "purchaseAmount": 250, "purchaseDate": "2025-09-01T00:00:00" },
+  { "id": 35, "customerId": 8, "purchaseAmount": 120, "purchaseDate": "2025-07-21T00:00:00" },
+  { "id": 36, "customerId": 8, "purchaseAmount": 200, "purchaseDate": "2025-10-19T00:00:00" },
+
+  { "id": 37, "customerId": 9, "purchaseAmount": 60, "purchaseDate": "2025-09-12T00:00:00" },
+  { "id": 38, "customerId": 9, "purchaseAmount": 105, "purchaseDate": "2025-08-07T00:00:00" },
+  { "id": 39, "customerId": 9, "purchaseAmount": 150, "purchaseDate": "2025-10-10T00:00:00" },
+
+  { "id": 40, "customerId": 10, "purchaseAmount": 170, "purchaseDate": "2025-07-28T00:00:00" },
+  { "id": 41, "customerId": 10, "purchaseAmount": 95, "purchaseDate": "2025-08-18T00:00:00" },
+  { "id": 42, "customerId": 10, "purchaseAmount": 210, "purchaseDate": "2025-09-25T00:00:00" },
+
+  { "id": 43, "customerId": 11, "purchaseAmount": 300, "purchaseDate": "2025-08-02T00:00:00" },
+  { "id": 44, "customerId": 11, "purchaseAmount": 120, "purchaseDate": "2025-09-09T00:00:00" },
+  { "id": 45, "customerId": 11, "purchaseAmount": 260, "purchaseDate": "2025-10-20T00:00:00" }
+
+]}
+
+
+caculation.js
+
+export const calculatePoints = (amount) => {
+    let points = 0;
+    if (amount > 100) {
+        // 2 points for every dollar over $100
+        points += (amount - 100) * 2;
+        // Plus 1 point for every dollar between $50 and $100 (which is 50 points)
+        points += 50;
+    } else if (amount > 50) {
+        // 1 point for every dollar between $50 and $100
+        points += (amount - 50) * 1;
+    }
+    return points;
+};
+
+export const processTransactions = (transactions) => {
+    var customerData = [];
+
+    // Get today’s date
+    const today = new Date();
+    // const today = new Date('2025-11-15T00:00:00');
+    // Cutoff date → 8 months ago
+    const cutoffDate = new Date();
+    cutoffDate.setMonth(today.getMonth() - 8);
+
+    const recentTransactions = transactions.filter(transaction => {
+        const txnDate = new Date(transaction.purchaseDate);
+        return txnDate >= cutoffDate && txnDate <= today;
+    });
+
+    recentTransactions.forEach(transaction => {
+        const { id, customerId, purchaseAmount, purchaseDate } = transaction;
+        const transactionDate = new Date(purchaseDate);
+        const month = transactionDate.toLocaleString('en-US', { month: 'long' });
+        const year = transactionDate.getFullYear();
+        const monthYear = `${month} ${year}`; 
+
+        const points = calculatePoints(purchaseAmount);
+
+        // Initialize customer object if it doesn't exist
+        if (!customerData[customerId]) {
+            customerData[customerId] = {
+                id: customerId,
+                monthlyRewards: {},
+                totalRewards: 0,
+            };
+        }
+
+        //  Initialize the monthYear key, not just month
+        if (!customerData[customerId].monthlyRewards[monthYear]) {
+            customerData[customerId].monthlyRewards[monthYear] = 0;
+        }
+
+        // Add points to the specific month and total
+        customerData[customerId].monthlyRewards[monthYear] += points;
+        customerData[customerId].totalRewards += points;
+    });
+
+
+    // Convert the object to an array for easier rendering in React
+    return Object.values(customerData);
+};

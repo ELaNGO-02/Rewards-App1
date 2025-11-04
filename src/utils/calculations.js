@@ -1,5 +1,7 @@
+// Calculate reward points based on purchase amount
 export const calculatePoints = (amount) => {
     let points = 0;
+
     if (amount > 100) {
         // 2 points for every dollar over $100
         points += (amount - 100) * 2;
@@ -9,20 +11,32 @@ export const calculatePoints = (amount) => {
         // 1 point for every dollar between $50 and $100
         points += (amount - 50) * 1;
     }
+
     return points;
 };
 
+// Process transactions into customer rewards
 export const processTransactions = (transactions) => {
-    const customerData = {};
+    const customerData = {}; // use object keyed by customerId
 
-    transactions.forEach(transaction => {
+    const today = new Date();
+    const cutoffDate = new Date();
+    cutoffDate.setMonth(today.getMonth() - 8); // last 8 months
+
+    const recentTransactions = transactions.filter(transaction => {
+        const txnDate = new Date(transaction.purchaseDate);
+        return txnDate >= cutoffDate && txnDate <= today;
+    });
+
+    recentTransactions.forEach(transaction => {
         const { customerId, purchaseAmount, purchaseDate } = transaction;
-        const transactionDate = new Date(purchaseDate);
-        const month = transactionDate.toLocaleString('en-US', { month: 'long' });
+        const date = new Date(purchaseDate);
+        const month = date.toLocaleString('en-US', { month: 'long' });
+        const year = date.getFullYear();
+        const monthYear = `${month} ${year}`;
 
         const points = calculatePoints(purchaseAmount);
 
-        // Initialize customer object if it doesn't exist
         if (!customerData[customerId]) {
             customerData[customerId] = {
                 id: customerId,
@@ -31,16 +45,13 @@ export const processTransactions = (transactions) => {
             };
         }
 
-        // Initialize monthly reward object if it doesn't exist
-        if (!customerData[customerId].monthlyRewards[month]) {
-            customerData[customerId].monthlyRewards[month] = 0;
+        if (!customerData[customerId].monthlyRewards[monthYear]) {
+            customerData[customerId].monthlyRewards[monthYear] = 0;
         }
 
-        // Add points to the specific month and total
-        customerData[customerId].monthlyRewards[month] += points;
+        customerData[customerId].monthlyRewards[monthYear] += points;
         customerData[customerId].totalRewards += points;
     });
 
-    // Convert the object to an array for easier rendering in React
     return Object.values(customerData);
 };
